@@ -1,11 +1,13 @@
 using System.Collections.Generic;
+using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public static class PathfindingAlgorithm
 {
     // TODO: Implement the pathfinding assignment here.
     // Find the lowest-cost path from start to goal using the map dimensions, wall costs and directed jumps exposed by IMapData.
-    private static List<Vector2Int> vertecies = new();
+    private static List<Vector2Int> vertices = new();
     private static Dictionary<Vector2Int, List<Vector2Int>> graph = new();
 
 
@@ -33,7 +35,7 @@ public static class PathfindingAlgorithm
                     if (y - 1 >= 0 && !mapData.HasHorizontalWall(x, y))//Down
                         edges.Add(new(x, y - 1));
 
-                    vertecies.Add(vertex);
+                    vertices.Add(vertex);
                     graph.Add(vertex, edges);
                     //string message = vertex.ToString() + ": ";
                     //foreach (Vector2Int e in edges)
@@ -47,10 +49,15 @@ public static class PathfindingAlgorithm
         bool[] marked = new bool[graph.Count];
         int[] distTo = new int[graph.Count];
         int[] edgeTo = new int[graph.Count];
+        Queue<Vector2Int> queue = new();
+
         for (int v = 0; v < graph.Count; v++)
             distTo[v] = int.MaxValue;
 
-        Queue<Vector2Int> queue = new();
+        int startIndex = vertices.IndexOf(start);
+        distTo[startIndex] = 0;
+        marked[startIndex] = true;
+
         queue.Enqueue(start);
 
         while (queue.Count > 0)
@@ -58,19 +65,37 @@ public static class PathfindingAlgorithm
             Vector2Int v = queue.Dequeue();
             foreach (Vector2Int w in graph[v])
             {
-                int wIndex = vertecies.IndexOf(w);
-                int vIndex = vertecies.IndexOf(v);
+                int wIndex = vertices.IndexOf(w);
+                int vIndex = vertices.IndexOf(v);
                 if (!marked[wIndex])
                 {
                     edgeTo[wIndex] = vIndex;
                     distTo[wIndex] = distTo[vIndex] + 1;
                     marked[wIndex] = true;
                     queue.Enqueue(w);
-                }//...
+                }
             }
         }
 
-            Debug.LogWarning("FindShortestPath is not implemented.");
+        int goalIndex = vertices.IndexOf(goal);
+        if (marked[goalIndex])
+        {
+            List<Vector2Int> path = new();
+            for (int i = goalIndex; distTo[i] != 0; i = edgeTo[i])
+            {
+                path.Add(vertices[i]);
+            }
+
+            path.Reverse();
+            return path;
+        }
+        else
+        {
+            Debug.LogWarning("No path to goal.");
+            return null;
+        }
+
+        Debug.LogWarning("FindShortestPath is not implemented.");
         return null;
     }
 

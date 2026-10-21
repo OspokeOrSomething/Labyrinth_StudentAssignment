@@ -8,7 +8,7 @@ public static class PathfindingAlgorithm
     // TODO: Implement the pathfinding assignment here.
     // Find the lowest-cost path from start to goal using the map dimensions, wall costs and directed jumps exposed by IMapData.
     private static List<Vector2Int> vertices = new();
-    private static Dictionary<Vector2Int, List<Vector2Int>> graph = new();
+    private static Dictionary<Vector2Int, List<(Vector2Int edge, float cost)>> graph = new();
 
 
 
@@ -20,83 +20,20 @@ public static class PathfindingAlgorithm
         //Create graph from mapData if graph is empty:
         if (graph.Count == 0)
         {
-            for (int y = 0; y < mapData.Height; y++)
-            {
-                for (int x = 0; x < mapData.Width; x++)
-                {
-                    Vector2Int vertex = new(x, y);
-                    List<Vector2Int> edges = new();
-                    if (x - 1 >= 0 && !mapData.HasVerticalWall(x, y))//Left
-                        edges.Add(new(x - 1, y));
-                    if (y + 1 < mapData.Height && !mapData.HasHorizontalWall(x, y + 1))//Up
-                        edges.Add(new(x, y + 1));
-                    if (x + 1 < mapData.Width && !mapData.HasVerticalWall(x + 1, y))//Right
-                        edges.Add(new(x + 1, y));
-                    if (y - 1 >= 0 && !mapData.HasHorizontalWall(x, y))//Down
-                        edges.Add(new(x, y - 1));
-
-                    vertices.Add(vertex);
-                    graph.Add(vertex, edges);
-                    //string message = vertex.ToString() + ": ";
-                    //foreach (Vector2Int e in edges)
-                    //    message += e + ", ";
-                    //Debug.Log(message);
-                }
-            }
+            BuildGraph(mapData);
         }
+
+        List<Vector2Int> path = null;
 
         //BFS:
-        bool[] marked = new bool[graph.Count];
-        int[] distTo = new int[graph.Count];
-        int[] edgeTo = new int[graph.Count];
-        Queue<Vector2Int> queue = new();
+        path = BFS(start, goal);
 
-        for (int v = 0; v < graph.Count; v++)
-            distTo[v] = int.MaxValue;
+        //A*:
+        //Should be moved like BFS.
 
-        int startIndex = vertices.IndexOf(start);
-        distTo[startIndex] = 0;
-        marked[startIndex] = true;
-
-        queue.Enqueue(start);
-
-        while (queue.Count > 0)
-        {
-            Vector2Int v = queue.Dequeue();
-            foreach (Vector2Int w in graph[v])
-            {
-                int wIndex = vertices.IndexOf(w);
-                int vIndex = vertices.IndexOf(v);
-                if (!marked[wIndex])
-                {
-                    edgeTo[wIndex] = vIndex;
-                    distTo[wIndex] = distTo[vIndex] + 1;
-                    marked[wIndex] = true;
-                    queue.Enqueue(w);
-                }
-            }
-        }
-
-        int goalIndex = vertices.IndexOf(goal);
-        if (marked[goalIndex])
-        {
-            List<Vector2Int> path = new();
-            for (int i = goalIndex; distTo[i] != 0; i = edgeTo[i])
-            {
-                path.Add(vertices[i]);
-            }
-
-            path.Reverse();
-            return path;
-        }
-        else
-        {
-            Debug.LogWarning("No path to goal.");
-            return null;
-        }
-
-        Debug.LogWarning("FindShortestPath is not implemented.");
-        return null;
+        if (path == null)
+            Debug.LogWarning("FindShortestPath is not implemented OR no algorithm is active.");
+        return path;
     }
 
     public static bool IsMovementBlocked(Vector2Int from, Vector2Int to, IMapData mapData)
@@ -120,5 +57,119 @@ public static class PathfindingAlgorithm
         int wallY = deltaY > 0 ? to.y : from.y;
         float horizontalWallCost = mapData.GetHorizontalWallCost(from.x, wallY);
         return float.IsPositiveInfinity(horizontalWallCost) || horizontalWallCost >= float.MaxValue;
+    }
+
+    private static List<Vector2Int> BFS(Vector2Int start, Vector2Int goal)
+    {
+        bool[] marked = new bool[graph.Count];
+        int[] distTo = new int[graph.Count];
+        int[] edgeTo = new int[graph.Count];
+        Queue<Vector2Int> queue = new();
+
+        for (int v = 0; v < graph.Count; v++)
+            distTo[v] = int.MaxValue;
+
+        int startIndex = vertices.IndexOf(start);
+        distTo[startIndex] = 0;
+        marked[startIndex] = true;
+
+        queue.Enqueue(start);
+
+        while (queue.Count > 0)
+        {
+            Vector2Int v = queue.Dequeue();
+            foreach ((Vector2Int e,float) w in graph[v])
+            {
+                int wIndex = vertices.IndexOf(w.e);
+                int vIndex = vertices.IndexOf(v);
+                if (!marked[wIndex])
+                {
+                    edgeTo[wIndex] = vIndex;
+                    distTo[wIndex] = distTo[vIndex] + 1;
+                    marked[wIndex] = true;
+                    queue.Enqueue(w.e);
+                }
+            }
+        }
+
+        int goalIndex = vertices.IndexOf(goal);
+        if (marked[goalIndex])
+        {
+            List<Vector2Int> path = new();
+            for (int i = goalIndex; distTo[i] != 0; i = edgeTo[i])
+            {
+                path.Add(vertices[i]);
+            }
+
+            path.Reverse();
+            return path;
+        }
+        else
+        {
+            Debug.LogWarning("No path to goal.");
+            return null;
+        }
+    }
+
+    private static void BuildGraph(IMapData mapData)
+    {
+        float inf = float.MaxValue;
+
+        for (int y = 0; y < mapData.Height; y++)
+        {
+            for (int x = 0; x < mapData.Width; x++)
+            {
+                Vector2Int vertex = new(x, y);
+                List<(Vector2Int to, float cost)> edges = new();
+                if (x - 1 >= 0)//Left
+                {
+                    float cost = mapData.GetVerticalWallCost(x, y);
+
+                    if (cost != inf)
+                        edges.Add((new(x - 1, y), cost));
+                }
+                if (y + 1 < mapData.Height)//Up
+                {
+                    float cost = mapData.GetHorizontalWallCost(x, y + 1);
+
+                    if (cost != inf)
+                        edges.Add((new(x, y + 1), cost));
+
+                }
+                if (x + 1 < mapData.Width)//Right
+                {
+                    float cost = mapData.GetVerticalWallCost(x + 1, y);
+
+                    if (cost != inf)
+                        edges.Add((new(x + 1, y), cost));
+                }
+                if (y - 1 >= 0)//Down
+                {
+                    float cost = mapData.GetHorizontalWallCost(x, y);
+
+                    if (cost != inf)
+                        edges.Add((new(x, y - 1), cost));
+                }
+                if (mapData.HasJumpFrom(x, y))
+                {
+                    Vector2Int pos = new(x, y);
+                    List<JumpConnection> jumps = mapData.GetJumpsFrom(pos);
+                    foreach (JumpConnection j in jumps)
+                    {
+                        if (mapData.TryGetJumpCost(pos, j.To, out float cost))
+                        {
+                            edges.Add((j.To, cost));
+                        }
+                    }
+                }
+
+                vertices.Add(vertex);
+                graph.Add(vertex, edges);
+                //string message = vertex.ToString() + ": ";
+                //foreach (Vector2Int e in edges)
+                //    message += e + ", ";
+                //Debug.Log(message);
+            }
+        }
     }
 }

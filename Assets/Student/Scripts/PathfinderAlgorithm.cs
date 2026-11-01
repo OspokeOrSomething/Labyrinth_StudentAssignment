@@ -152,8 +152,6 @@ public static class PathfindingAlgorithm
         PriorityQueue openList = new();
         openList.Insert((posIndex, 0.0f));
 
-        bool foundDest = false;
-
         while (openList.Count > 0)
         {
             int index = openList.DelMax().nodeIndex;
@@ -163,29 +161,25 @@ public static class PathfindingAlgorithm
 
             closedList[index] = true;
 
-
-            int[] dRow = { -1, 1, 0, 0 };//NSEW
-            int[] dCol = { 0, 0, 1, -1 };//NSEW
-
             Vector2Int vertex = vertices[index];
-            for (int dir = 0; dir < 4; dir++)
-            {
-                Vector2Int newVertex = new(vertex.x + dRow[dir], vertex.y + dCol[dir]);
+            List<(Vector2Int edge, float cost)> edges = graph[vertex];
 
-                if (!vertices.Contains(newVertex))
+            for (int con = 0; con < edges.Count; con++)
+            {
+                if (!vertices.Contains(edges[con].edge))
                     continue;
 
-                int newVertexIndex = vertices.IndexOf(newVertex);
+                int conVertexIndex = vertices.IndexOf(edges[con].edge);
 
-                if (newVertex == goal)
+                if (edges[con].edge == goal)
                 {
-                    cells[newVertexIndex].parent = index;
+                    cells[conVertexIndex].parent = index;
 
                     //TracePath
                     Stack<Vector2Int> path = new();
                     int curIndex = vertices.IndexOf(goal);
 
-                    while (cells[curIndex].parent != index)
+                    while (cells[curIndex].parent != curIndex)
                     {
                         path.Push(vertices[curIndex]);
 
@@ -194,37 +188,30 @@ public static class PathfindingAlgorithm
 
                     path.Push(vertices[curIndex]);
 
-                    //May need to reverse path.
-
-                    foundDest = true;
-                    return path.ToList<Vector2Int>();
+                    return path.ToList();
                 }
 
-                if (!closedList[newVertexIndex])//Includes IsUnblocked(grid,newRow,newCol) in reference
+                if (!closedList[conVertexIndex])
                 {
-                    float gNew = cells[index].g + 1f;
-                    float hNew = Mathf.Sqrt((vertex.x - goal.x) * (vertex.x - goal.x)
-                        + (vertex.y - goal.y) * (vertex.y - goal.y));
+                    float gNew = cells[index].g + edges[con].cost;
+                    float hNew = Mathf.Abs(vertex.x - goal.x) +
+                        Mathf.Abs(vertex.y - goal.y);
                     float fNew = gNew + hNew;
 
-                    if (cells[newVertexIndex].f == float.MaxValue || cells[newVertexIndex].f > fNew)
+                    if (cells[conVertexIndex].f == float.MaxValue || cells[conVertexIndex].f > fNew)
                     {
-                        openList.Insert((newVertexIndex, fNew));
-                    
-                        cells[newVertexIndex].f = fNew;
-                        cells[newVertexIndex].g = gNew;
-                        cells[newVertexIndex].h = hNew;
-                        cells[newVertexIndex].parent = index;
+                        openList.Insert((conVertexIndex, fNew));
+
+                        cells[conVertexIndex].f = fNew;
+                        cells[conVertexIndex].g = gNew;
+                        cells[conVertexIndex].h = hNew;
+                        cells[conVertexIndex].parent = index;
                     }
                 }
             }
         }
 
-        if (!foundDest)
-        {
-            Debug.LogWarning("Failed to find goal");
-        }
-        
+        Debug.LogWarning("Failed to find goal");
         return new();
 
     }
@@ -327,7 +314,6 @@ public static class PathfindingAlgorithm
 
             priorityQueue[++n] = x;
             Swim(n);
-            //assert isMaxHeap();
         }
 
         public (int nodeIndex, float priority) DelMax()
@@ -336,13 +322,13 @@ public static class PathfindingAlgorithm
                 return (-1, -1);
             (int, float) max = priorityQueue[1];
 
-            (priorityQueue[n - 1], priorityQueue[1]) = (priorityQueue[1], priorityQueue[n - 1]);
+            (priorityQueue[n], priorityQueue[1]) = (priorityQueue[1], priorityQueue[n]);
+            n--;
 
             Sink(1);
             priorityQueue[n + 1] = (-1, -1);     // to avoid loitering and help with garbage collection
             if ((n > 0) && (n == (priorityQueue.Length - 1) / 4))
                 Resize(priorityQueue.Length / 2);
-            //assert isMaxHeap();
             return max;
         }
 

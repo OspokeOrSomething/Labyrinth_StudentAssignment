@@ -27,6 +27,8 @@ public static class PathfindingAlgorithm
 
         List<Vector2Int> path = null;
 
+        //Mark the algorithm not to be used as comment and unmark the other.
+
         //BFS:
         //path = BFS(start, goal);
 
@@ -270,6 +272,8 @@ public static class PathfindingAlgorithm
 
                 vertices.Add(vertex);
                 graph.Add(vertex, edges);
+
+                //Lines for viewing created graph contents:
                 //string message = vertex.ToString() + ": ";
                 //foreach (Vector2Int e in edges)
                 //    message += e + ", ";

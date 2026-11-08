@@ -7,13 +7,10 @@ using UnityEngine.InputSystem;
 
 public static class PathfindingAlgorithm
 {
-    // TODO: Implement the pathfinding assignment here.
     // Find the lowest-cost path from start to goal using the map dimensions, wall costs and directed jumps exposed by IMapData.
-    private static List<Vector2Int> vertices = new();
-    private static Dictionary<Vector2Int, List<(Vector2Int edge, float cost)>> graph = new();
-
-
-
+    private static Vector2Int[] vertices;
+    private static Dictionary<int, List<(int edgeIndex, float cost)>> graph = new();
+    private static int startIndex, goalIndex;
 
     public static List<Vector2Int> FindShortestPath(Vector2Int start, Vector2Int goal, IMapData mapData)
     {
@@ -22,7 +19,7 @@ public static class PathfindingAlgorithm
         //Create graph from mapData if graph is empty:
         if (graph.Count == 0)
         {
-            BuildGraph(mapData);
+            BuildGraph(mapData,start,goal);
         }
 
         List<Vector2Int> path = null;
@@ -68,35 +65,33 @@ public static class PathfindingAlgorithm
         bool[] marked = new bool[graph.Count];
         int[] distTo = new int[graph.Count];
         int[] edgeTo = new int[graph.Count];
-        Queue<Vector2Int> queue = new();
+        Queue<int> queue = new();
 
         for (int v = 0; v < graph.Count; v++)
             distTo[v] = int.MaxValue;
 
-        int startIndex = vertices.IndexOf(start);
         distTo[startIndex] = 0;
         marked[startIndex] = true;
 
-        queue.Enqueue(start);
+        queue.Enqueue(startIndex);
 
         while (queue.Count > 0)
         {
-            Vector2Int v = queue.Dequeue();
-            foreach ((Vector2Int e, float) w in graph[v])
+            int v = queue.Dequeue();
+            foreach ((int e, float) w in graph[v])
             {
-                int wIndex = vertices.IndexOf(w.e);
-                int vIndex = vertices.IndexOf(v);
+                int wIndex = w.e;
+
                 if (!marked[wIndex])
                 {
-                    edgeTo[wIndex] = vIndex;
-                    distTo[wIndex] = distTo[vIndex] + 1;
+                    edgeTo[wIndex] = v;
+                    distTo[wIndex] = distTo[v] + 1;
                     marked[wIndex] = true;
                     queue.Enqueue(w.e);
                 }
             }
         }
 
-        int goalIndex = vertices.IndexOf(goal);
         if (marked[goalIndex])
         {
             List<Vector2Int> path = new();
@@ -144,19 +139,19 @@ public static class PathfindingAlgorithm
         }
 
         Vector2Int pos = start;
-        int posIndex = vertices.IndexOf(pos);
+        int posIndex = startIndex;
 
         cells[posIndex].f = 0;
         cells[posIndex].g = 0;
         cells[posIndex].h = 0;
-        cells[posIndex].parent = vertices.IndexOf(start);
+        cells[posIndex].parent = startIndex;
 
         PriorityQueue openList = new();
-        openList.Insert((posIndex, 0.0f));
+        openList.Push((posIndex, 0.0f));
 
         while (openList.Count > 0)
         {
-            int index = openList.DelMax().nodeIndex;
+            int index = openList.Pop().nodeIndex;
 
             if (closedList[index])
                 continue;
@@ -164,22 +159,19 @@ public static class PathfindingAlgorithm
             closedList[index] = true;
 
             Vector2Int vertex = vertices[index];
-            List<(Vector2Int edge, float cost)> edges = graph[vertex];
+            List<(int edge, float cost)> edges = graph[index];
 
             for (int con = 0; con < edges.Count; con++)
             {
-                if (!vertices.Contains(edges[con].edge))
-                    continue;
+                int conVertexIndex = edges[con].edge;
 
-                int conVertexIndex = vertices.IndexOf(edges[con].edge);
-
-                if (edges[con].edge == goal)
+                if (vertices[edges[con].edge] == goal)
                 {
                     cells[conVertexIndex].parent = index;
 
                     //TracePath
                     Stack<Vector2Int> path = new();
-                    int curIndex = vertices.IndexOf(goal);
+                    int curIndex = goalIndex;
 
                     while (cells[curIndex].parent != curIndex)
                     {
@@ -202,7 +194,7 @@ public static class PathfindingAlgorithm
 
                     if (cells[conVertexIndex].f == float.MaxValue || cells[conVertexIndex].f > fNew)
                     {
-                        openList.Insert((conVertexIndex, fNew));
+                        openList.Push((conVertexIndex, fNew));
 
                         cells[conVertexIndex].f = fNew;
                         cells[conVertexIndex].g = gNew;
@@ -218,29 +210,32 @@ public static class PathfindingAlgorithm
 
     }
 
-    private static void BuildGraph(IMapData mapData)
+    private static void BuildGraph(IMapData mapData, Vector2Int start, Vector2Int goal)
     {
+        vertices = new Vector2Int[mapData.Height * mapData.Width];
+
         float inf = float.MaxValue;
+        int index = 0;
 
         for (int y = 0; y < mapData.Height; y++)
         {
             for (int x = 0; x < mapData.Width; x++)
             {
                 Vector2Int vertex = new(x, y);
-                List<(Vector2Int to, float cost)> edges = new();
+                List<(int to, float cost)> edges = new();
                 if (x - 1 >= 0)//Left
                 {
                     float cost = mapData.GetVerticalWallCost(x, y);
 
                     if (cost != inf)
-                        edges.Add((new(x - 1, y), cost));
+                        edges.Add((GetIndex(new(x - 1, y),mapData.Width), cost));
                 }
                 if (y + 1 < mapData.Height)//Up
                 {
                     float cost = mapData.GetHorizontalWallCost(x, y + 1);
 
                     if (cost != inf)
-                        edges.Add((new(x, y + 1), cost));
+                        edges.Add((GetIndex(new(x, y + 1),mapData.Width), cost));
 
                 }
                 if (x + 1 < mapData.Width)//Right
@@ -248,14 +243,14 @@ public static class PathfindingAlgorithm
                     float cost = mapData.GetVerticalWallCost(x + 1, y);
 
                     if (cost != inf)
-                        edges.Add((new(x + 1, y), cost));
+                        edges.Add((GetIndex(new(x + 1, y),mapData.Width), cost));
                 }
                 if (y - 1 >= 0)//Down
                 {
                     float cost = mapData.GetHorizontalWallCost(x, y);
 
                     if (cost != inf)
-                        edges.Add((new(x, y - 1), cost));
+                        edges.Add((GetIndex(new(x, y - 1),mapData.Width), cost));
                 }
                 if (mapData.HasJumpFrom(x, y))
                 {
@@ -265,13 +260,20 @@ public static class PathfindingAlgorithm
                     {
                         if (mapData.TryGetJumpCost(pos, j.To, out float cost))
                         {
-                            edges.Add((j.To, cost));
+                            edges.Add((GetIndex(j.To,mapData.Width), cost));
                         }
                     }
                 }
 
-                vertices.Add(vertex);
-                graph.Add(vertex, edges);
+                vertices[index] = vertex;
+                graph.Add(index, edges);
+
+                if (vertex == start)
+                    startIndex = index;
+                else if (vertex == goal)
+                    goalIndex = index;
+
+                index++;
 
                 //Lines for viewing created graph contents:
                 //string message = vertex.ToString() + ": ";
@@ -281,7 +283,15 @@ public static class PathfindingAlgorithm
             }
         }
     }
+    
+    //Small calculation method to help find the index of some vertices in BuildGraph.
+    private static int GetIndex(Vector2Int pos, int maxX)
+    {
+        return maxX * pos.y + pos.x;
+    }
 
+
+    //implemented from the book
     private class PriorityQueue
     {
         private (int nodeIndex, float priority)[] priorityQueue;
@@ -295,7 +305,6 @@ public static class PathfindingAlgorithm
             priorityQueue = new (int, float)[initialCapacity];
         }
 
-        //implemented from the book
         private void Resize(int capacity)
         {
             if (capacity < n)
@@ -309,7 +318,7 @@ public static class PathfindingAlgorithm
             priorityQueue = temp;
         }
 
-        public void Insert((int, float) x)
+        public void Push((int, float) x)
         {
 
             // double size of array if necessary
@@ -320,7 +329,7 @@ public static class PathfindingAlgorithm
             Swim(n);
         }
 
-        public (int nodeIndex, float priority) DelMax()
+        public (int nodeIndex, float priority) Pop()
         {
             if (n == 0)
                 return (-1, -1);

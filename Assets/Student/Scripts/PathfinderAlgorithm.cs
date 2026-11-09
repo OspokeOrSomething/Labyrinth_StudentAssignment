@@ -163,11 +163,11 @@ public static class PathfindingAlgorithm
 
             for (int con = 0; con < edges.Count; con++)
             {
-                int conVertexIndex = edges[con].edge;
+                int conIndex = edges[con].edge;
 
                 if (vertices[edges[con].edge] == goal)
                 {
-                    cells[conVertexIndex].parent = index;
+                    cells[conIndex].parent = index;
 
                     //TracePath
                     Stack<Vector2Int> path = new();
@@ -185,21 +185,21 @@ public static class PathfindingAlgorithm
                     return path.ToList();
                 }
 
-                if (!closedList[conVertexIndex])
+                if (!closedList[conIndex])
                 {
                     float gNew = cells[index].g + edges[con].cost;
-                    float hNew = Mathf.Abs(vertex.x - goal.x) +
-                        Mathf.Abs(vertex.y - goal.y);
+                    float hNew = Mathf.Abs(vertices[conIndex].x - goal.x) +
+                        Mathf.Abs(vertices[conIndex].y - goal.y);
                     float fNew = gNew + hNew;
 
-                    if (cells[conVertexIndex].f == float.MaxValue || cells[conVertexIndex].f > fNew)
+                    if (cells[conIndex].f == float.MaxValue || cells[conIndex].f > fNew)
                     {
-                        openList.Push((conVertexIndex, fNew));
+                        openList.Push((conIndex, fNew));
 
-                        cells[conVertexIndex].f = fNew;
-                        cells[conVertexIndex].g = gNew;
-                        cells[conVertexIndex].h = hNew;
-                        cells[conVertexIndex].parent = index;
+                        cells[conIndex].f = fNew;
+                        cells[conIndex].g = gNew;
+                        cells[conIndex].h = hNew;
+                        cells[conIndex].parent = index;
                     }
                 }
             }

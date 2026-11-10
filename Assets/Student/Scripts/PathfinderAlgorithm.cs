@@ -118,9 +118,9 @@ public static class PathfindingAlgorithm
         public Cell()
         {
             parent = -1;
-            f = float.MaxValue;
             g = float.MaxValue;
             h = float.MaxValue;
+            f = float.MaxValue;
         }
     }
 
@@ -141,9 +141,9 @@ public static class PathfindingAlgorithm
         Vector2Int pos = start;
         int posIndex = startIndex;
 
-        cells[posIndex].f = 0;
         cells[posIndex].g = 0;
         cells[posIndex].h = 0;
+        cells[posIndex].f = 0;
         cells[posIndex].parent = startIndex;
 
         PriorityQueue openList = new();
@@ -196,9 +196,9 @@ public static class PathfindingAlgorithm
                     {
                         openList.Push((conIndex, fNew));
 
-                        cells[conIndex].f = fNew;
                         cells[conIndex].g = gNew;
                         cells[conIndex].h = hNew;
+                        cells[conIndex].f = fNew;
                         cells[conIndex].parent = index;
                     }
                 }
